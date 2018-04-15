@@ -3,6 +3,6 @@
 
 int main()
 {
-    Monitor monitor(1);
+    Monitor monitor(0);
     std::cout<<"ok"<<std::endl;
 }
