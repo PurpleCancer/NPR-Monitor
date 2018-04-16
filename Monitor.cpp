@@ -49,6 +49,9 @@ Monitor::~Monitor()
 
 void Monitor::Enter()
 {
+    if (InSection)
+        throw MonitorException();
+
     localMtx.lock();
 
     InSection = true;
@@ -70,6 +73,9 @@ void Monitor::Enter()
 }
 void Monitor::Exit()
 {
+    if (!InSection)
+        throw new MonitorException();
+
     localMtx.lock();
 
     token->LN[i] = RN[i];
@@ -102,6 +108,9 @@ void Monitor::Exit()
 }
 void Monitor::Wait(std::string condVarIdent)
 {
+    if (!InSection)
+        throw new MonitorException();
+
     localMtx.lock();
 
     InSection = false;
@@ -113,6 +122,9 @@ void Monitor::Wait(std::string condVarIdent)
 }
 void Monitor::Signal(std::string condVarIdent)
 {
+    if (!InSection)
+        throw new MonitorException();
+
     localMtx.lock();
 
     if (!token->conditionalQueues[condVarIdent].empty())
@@ -126,6 +138,9 @@ void Monitor::Signal(std::string condVarIdent)
 }
 void Monitor::SignalAll(std::string condVarIdent)
 {
+    if (!InSection)
+        throw new MonitorException();
+
     localMtx.lock();
 
     while (!token->conditionalQueues[condVarIdent].empty())
@@ -140,6 +155,9 @@ void Monitor::SignalAll(std::string condVarIdent)
 
 std::string Monitor::GetBuffer(std::string buffIdent)
 {
+    if (!InSection)
+        throw new MonitorException();
+
     localMtx.lock();
 
     return token->buffers[buffIdent];
@@ -148,6 +166,9 @@ std::string Monitor::GetBuffer(std::string buffIdent)
 }
 void Monitor::PutBuffer(std::string buffIdent, std::string buffer)
 {
+    if (!InSection)
+        throw new MonitorException();
+
     localMtx.lock();
 
     token->buffers[buffIdent] = buffer;

@@ -2,6 +2,7 @@
 #include "Token.hpp"
 #include "Request.hpp"
 #include "config.hpp"
+#include "MonitorException.hpp"
 
 class Monitor : public IMonitor
 {
