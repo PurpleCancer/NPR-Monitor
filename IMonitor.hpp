@@ -11,6 +11,6 @@ class IMonitor
         virtual void Signal(std::string condVarIdent) = 0;
         virtual void SignalAll(std::string condVarIdent) = 0;
 
-        virtual std::string ReadBuffer(std::string buffIdent) = 0;
+        virtual std::string GetBuffer(std::string buffIdent) = 0;
         virtual void PutBuffer(std::string buffIdent, std::string buffer) = 0;
 };

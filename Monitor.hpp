@@ -1,14 +1,11 @@
 #include "IMonitor.hpp"
 #include "Token.hpp"
 #include "Request.hpp"
-#include <zmq.hpp>
-#include <string>
-#include <mutex>
-#include <algorithm>
+#include "config.hpp"
 
 class Monitor : public IMonitor
 {
-    private:
+    public:
         std::string * machines;
 
         int * RN;
@@ -22,6 +19,8 @@ class Monitor : public IMonitor
         zmq::socket_t * push, * pull;
         // request
         zmq::socket_t * pub, * sub;
+
+        std::thread * subThread;
 
         void WaitingRoutine();
         void Subscriber();
@@ -37,6 +36,6 @@ class Monitor : public IMonitor
         virtual void Signal(std::string condVarIdent);
         virtual void SignalAll(std::string condVarIdent);
 
-        virtual std::string ReadBuffer(std::string buffIdent);
+        virtual std::string GetBuffer(std::string buffIdent);
         virtual void PutBuffer(std::string buffIdent, std::string buffer);
 };

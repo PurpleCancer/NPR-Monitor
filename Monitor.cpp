@@ -1,8 +1,4 @@
 #include "Monitor.hpp"
-#include "config.hpp"
-#include <string>
-#include <iostream>
-#include <sstream>
 
 
 Monitor::Monitor(int i)
@@ -39,11 +35,10 @@ Monitor::Monitor(int i)
         if (j != i)
         {
             sub->connect(GetMachineName(j));
-            //std::cout<<GetMachineName(j)<<std::endl;
         }
     }
 
-    // setup subscriber thread
+   subThread = new std::thread(&Monitor::Subscriber, this);
 }
 Monitor::~Monitor()
 {
@@ -82,17 +77,17 @@ void Monitor::Exit()
     {
         if (j != i)
         {
-            if (std::find(token->q->begin(), token->q->end(), j) == token->q->end() && // machine not in the token queue
-            RN[j] == token->LN[j] + 1)
+            if (std::find(token->q.begin(), token->q.end(), j) == token->q.end()// machine not in the token queue 
+            && RN[j] == token->LN[j] + 1)
             {
-                token->q->push_back(j);
+                token->q.push_back(j);
             }
         }
     }
-    if (!token->q->empty())
+    if (!token->q.empty())
     {
-        int j = token->q->front();
-        token->q->pop_front();
+        int j = token->q.front();
+        token->q.pop_front();
         HavePrivilege = false;
         std::string MachineName = GetMachineName(j);
         push->connect(MachineName);
@@ -107,24 +102,57 @@ void Monitor::Exit()
 }
 void Monitor::Wait(std::string condVarIdent)
 {
-    
+    localMtx.lock();
+
+    InSection = false;
+    token->conditionalQueues[condVarIdent].push_back(i);
+    WaitingRoutine();
+    InSection = true;
+
+    localMtx.unlock();
 }
 void Monitor::Signal(std::string condVarIdent)
 {
+    localMtx.lock();
 
+    if (!token->conditionalQueues[condVarIdent].empty())
+    {
+        int j = token->conditionalQueues[condVarIdent].front();
+        token->conditionalQueues[condVarIdent].pop_front();
+        token->q.push_front(j);
+    }
+
+    localMtx.unlock();
 }
 void Monitor::SignalAll(std::string condVarIdent)
 {
+    localMtx.lock();
 
+    while (!token->conditionalQueues[condVarIdent].empty())
+    {
+        int j = token->conditionalQueues[condVarIdent].front();
+        token->conditionalQueues[condVarIdent].pop_front();
+        token->q.push_front(j);
+    }
+
+    localMtx.unlock();
 }
 
-std::string Monitor::ReadBuffer(std::string buffIdent)
+std::string Monitor::GetBuffer(std::string buffIdent)
 {
-        
+    localMtx.lock();
+
+    return token->buffers[buffIdent];
+
+    localMtx.unlock(); 
 }
 void Monitor::PutBuffer(std::string buffIdent, std::string buffer)
 {
-        
+    localMtx.lock();
+
+    token->buffers[buffIdent] = buffer;
+
+    localMtx.unlock();
 }
 
 void Monitor::WaitingRoutine()
@@ -134,18 +162,21 @@ void Monitor::WaitingRoutine()
     zmq::message_t msg;
     pull->recv(&msg);
     token = Token::Deserialize(&msg);
+    HavePrivilege = true;
 
     localMtx.lock();
 }
 void Monitor::Subscriber()
 {
-    localMtx.lock();
-
     while (1)
     {
         zmq::message_t msg;
         sub->recv(&msg);
         struct Request r = *((struct Request *)msg.data());
+
+
+        localMtx.lock();
+
         RN[r.procID] = std::max(RN[r.procID], r.RN_i);
         if (HavePrivilege && !InSection)
         {
@@ -157,9 +188,9 @@ void Monitor::Subscriber()
 
             delete token;
         }
-    }
 
-    localMtx.unlock();
+        localMtx.unlock();
+    }
 }
 
 std::string Monitor::GetMachineName(int index)

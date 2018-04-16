@@ -3,14 +3,11 @@
 Token::Token()
 {
     LN = new int[NUMBER_OF_MONITORS];
-
-    q = new std::deque<int>;
 }
 
 Token::~Token()
 {
     delete LN;
-    delete q;
 }
 
 zmq::message_t * Token::Serialize(Token * token)
