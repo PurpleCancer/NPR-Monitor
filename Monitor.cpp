@@ -19,7 +19,7 @@ Monitor::Monitor(int i)
         this->HavePrivilege = false;
     }
 
-    context = new zmq::context_t(1);
+    context = new zmq::context_t(2 * NUMBER_OF_MONITORS);
     pull = new zmq::socket_t(*context, ZMQ_PULL);
     push = new zmq::socket_t(*context, ZMQ_PUSH);
     pub = new zmq::socket_t(*context, ZMQ_PUB);
@@ -34,7 +34,7 @@ Monitor::Monitor(int i)
     {
         if (j != i)
         {
-            sub->connect(GetMachineName(j));
+            sub->connect(GetMachineName(j, 5556));
         }
     }
 
@@ -60,7 +60,7 @@ void Monitor::Enter()
         r.procID = i;
         r.RN_i = RN[i];
         zmq::message_t msg(&r, sizeof(struct Request));
-        push->send(msg);
+        pub->send(msg);
         
         WaitingRoutine();
         HavePrivilege = true;
@@ -89,7 +89,7 @@ void Monitor::Exit()
         int j = token->q.front();
         token->q.pop_front();
         HavePrivilege = false;
-        std::string MachineName = GetMachineName(j);
+        std::string MachineName = GetMachineName(j, 5555);
         push->connect(MachineName);
         push->send(*Token::Serialize(token));
         push->disconnect(MachineName);
@@ -174,14 +174,13 @@ void Monitor::Subscriber()
         sub->recv(&msg);
         struct Request r = *((struct Request *)msg.data());
 
-
         localMtx.lock();
 
         RN[r.procID] = std::max(RN[r.procID], r.RN_i);
         if (HavePrivilege && !InSection)
         {
             HavePrivilege = false;
-            std::string MachineName = GetMachineName(r.procID);
+            std::string MachineName = GetMachineName(r.procID, 5555);
             push->connect(MachineName);
             push->send(*Token::Serialize(token));
             push->disconnect(MachineName);
@@ -193,9 +192,9 @@ void Monitor::Subscriber()
     }
 }
 
-std::string Monitor::GetMachineName(int index)
+std::string Monitor::GetMachineName(int index, int port)
 {
     std::ostringstream oss;
-    oss << "tcp://" << machines[index] << ":5556";
+    oss << "tcp://" << machines[index] << ":" << port;
     return oss.str();
 }

@@ -1,9 +1,14 @@
 #include "Monitor.hpp"
 #include <iostream>
+#include <unistd.h>
 
-int main()
+int main(int argc, char * argv[])
 {
-    Monitor monitor(1);
+    if (argc < 1)
+        return 1;
+    Monitor monitor(std::stoi(argv[1]));
+
+    sleep(2);
     
     std::cout<<"start"<<std::endl;
     monitor.Enter();
@@ -12,7 +17,7 @@ int main()
     monitor.PutBuffer("buf", "ala ma kota");
     monitor.Exit();
 
-    std::cout<<"ok"<<std::endl;
+    while(1);
 
     monitor.Enter();
     monitor.SignalAll("abc");
@@ -20,4 +25,6 @@ int main()
     monitor.Wait("abc");
     std::cout<<"after wait"<<std::endl;
     monitor.Exit();
+
+    return 0;
 }

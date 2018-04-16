@@ -25,7 +25,7 @@ class Monitor : public IMonitor
         void WaitingRoutine();
         void Subscriber();
 
-        std::string GetMachineName(int index);
+        std::string GetMachineName(int index, int port);
     public:
         Monitor(int i);
         ~Monitor();
