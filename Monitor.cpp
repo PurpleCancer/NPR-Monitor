@@ -38,6 +38,9 @@ Monitor::Monitor(int i)
         }
     }
 
+    // to receive shutdown request
+    sub->connect("tcp://localhost:5556");
+
    subThread = new std::thread(&Monitor::Subscriber, this);
 }
 Monitor::~Monitor()
@@ -45,6 +48,20 @@ Monitor::~Monitor()
     delete RN;
     if (HavePrivilege)
         delete token;
+
+    // send termination request to subscriber thread
+    struct Request r;
+    r.procID = i;
+    r.RN_i = -1;
+    zmq::message_t msg(&r, sizeof(struct Request));
+    pub->send(msg);
+    subThread->join();
+
+    delete push;
+    delete pull;
+    delete pub;
+    delete sub;
+    delete context;
 }
 
 void Monitor::Enter()
@@ -194,6 +211,14 @@ void Monitor::Subscriber()
         zmq::message_t msg;
         sub->recv(&msg);
         struct Request r = *((struct Request *)msg.data());
+
+        if (r.procID == i)
+        {
+            if (r.RN_i < 0) //termination request from main thread
+                break;
+            else            //other request from main thread - ignore them
+                continue;
+        }
 
         localMtx.lock();
 
