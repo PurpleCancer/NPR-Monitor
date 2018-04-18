@@ -23,7 +23,10 @@ class Monitor : public IMonitor
 
         std::thread * subThread;
 
+        // perform those only having local mutex!
+        void DisposeOfToken();
         void WaitingRoutine();
+
         void Subscriber();
 
         std::string GetMachineName(int index, int port);

@@ -95,30 +95,7 @@ void Monitor::Exit()
 
     localMtx.lock();
 
-    token->LN[i] = RN[i];
-    for (int j = 0; j < NUMBER_OF_MONITORS; ++j)
-    {
-        if (j != i)
-        {
-            if (std::find(token->q.begin(), token->q.end(), j) == token->q.end()// machine not in the token queue 
-            && RN[j] == token->LN[j] + 1)
-            {
-                token->q.push_back(j);
-            }
-        }
-    }
-    if (!token->q.empty())
-    {
-        int j = token->q.front();
-        token->q.pop_front();
-        HavePrivilege = false;
-        std::string MachineName = GetMachineName(j, 5555);
-        push->connect(MachineName);
-        push->send(*Token::Serialize(token));
-        push->disconnect(MachineName);
-
-        delete token;
-    }
+    DisposeOfToken();
     InSection = false;
 
     localMtx.unlock();
@@ -130,8 +107,11 @@ void Monitor::Wait(std::string condVarIdent)
 
     localMtx.lock();
 
-    InSection = false;
     token->conditionalQueues[condVarIdent].push_back(i);
+
+    DisposeOfToken();    
+    InSection = false;
+    
     WaitingRoutine();
     InSection = true;
 
@@ -204,6 +184,33 @@ void Monitor::WaitingRoutine()
 
     localMtx.lock();
 }
+void Monitor::DisposeOfToken()
+{
+    token->LN[i] = RN[i];
+    for (int j = 0; j < NUMBER_OF_MONITORS; ++j)
+    {
+        if (j != i)
+        {
+            if (std::find(token->q.begin(), token->q.end(), j) == token->q.end()// machine not in the token queue 
+            && RN[j] == token->LN[j] + 1)
+            {
+                token->q.push_back(j);
+            }
+        }
+    }
+    if (!token->q.empty())
+    {
+        int j = token->q.front();
+        token->q.pop_front();
+        HavePrivilege = false;
+        std::string MachineName = GetMachineName(j, 5555);
+        push->connect(MachineName);
+        push->send(*Token::Serialize(token));
+        push->disconnect(MachineName);
+
+        delete token;
+    }
+}
 void Monitor::Subscriber()
 {
     while (1)
@@ -212,14 +219,15 @@ void Monitor::Subscriber()
         sub->recv(&msg);
         struct Request r = *((struct Request *)msg.data());
 
-        if (r.procID == i)
+        if (r.RN_i < 0 || r.procID == i)
         {
-            if (r.RN_i < 0) //termination request from main thread
+            if (r.RN_i < 0 && r.procID == i) //termination request from this monitor's main thread
                 break;
-            else            //other request from main thread - ignore them
+            else //termination request from another monitor or normal request from this monitor's main thread
                 continue;
         }
 
+        //normal request from another monitor
         localMtx.lock();
 
         RN[r.procID] = std::max(RN[r.procID], r.RN_i);
